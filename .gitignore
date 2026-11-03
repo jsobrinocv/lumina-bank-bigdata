@@ -1,0 +1,18 @@
+# Credenciales: NUNCA subir a GitHub
+kaggle.json
+*.json.key
+*-key.json
+.env
+
+# Datos (viven en Cloud Storage, no en el repo)
+*.csv
+!data/eventos_calendario.csv
+*.parquet
+*.zip
+
+# Entornos y temporales de Python
+venv*/
+.venv/
+__pycache__/
+*.pyc
+*.log
