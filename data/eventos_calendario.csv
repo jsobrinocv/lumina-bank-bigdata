@@ -1,0 +1,10 @@
+fecha,evento,tipo_evento,es_feriado
+2026-09-01,Pago de pensiones,PAGO,0
+2026-09-04,Feria Financiera Metropolitana (dia 1),FERIA,0
+2026-09-05,Feria Financiera Metropolitana (dia 2),FERIA,0
+2026-09-15,Quincena - pago de planillas,PAGO,0
+2026-09-18,Dia de la Unificacion Lumina (feriado regional),FERIADO,1
+2026-09-25,Cyber Days DataLandia,CAMPANIA,0
+2026-09-30,Fin de mes - pago de planillas,PAGO,0
+2026-10-01,Pago de pensiones,PAGO,0
+2026-10-08,Feriado nacional,FERIADO,1

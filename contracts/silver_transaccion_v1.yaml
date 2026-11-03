@@ -1,0 +1,28 @@
+data_product: silver_transaccion_v1
+domain: banca_transaccional
+owner: "<correo del data owner del Grupo 1>"
+version: 1.0.0
+source: PaySim (Kaggle) - bronze/paysim
+location: gs://<BUCKET>/silver/transacciones (tabla externa lumina_silver.silver_transaccion_v1)
+schema:
+  - {name: transaccion_id, type: string, nullable: false, description: "SHA-256 de los campos de negocio"}
+  - {name: fecha, type: date, nullable: false, description: "particion"}
+  - {name: ts_evento, type: timestamp, nullable: false}
+  - {name: tipo, type: string, nullable: false, allowed: [CASH_IN, CASH_OUT, DEBIT, PAYMENT, TRANSFER]}
+  - {name: monto, type: double, nullable: false}
+  - {name: cliente_origen_id, type: string, nullable: false, pii: true}
+  - {name: cliente_destino_id, type: string, nullable: false, pii: true}
+  - {name: es_fraude, type: int, nullable: false, allowed: [0, 1]}
+slos:
+  freshness: "T+1d 06:00 America/Lima"
+  completeness: ">= 99.5% de filas bronze"
+  availability: ">= 99.9%"
+quality_tests:
+  - not_null: [transaccion_id, fecha, tipo, monto, cliente_origen_id]
+  - unique: [transaccion_id]
+  - range: {column: monto, min: 0}
+security:
+  classification: "Confidencial"
+  masking: "cliente_*_id enmascarado para roles analista (policy tags Dataplex)"
+breaking_changes:
+  policy: "minor = compatible, major = incompatible; avisar 2 sprints antes"
