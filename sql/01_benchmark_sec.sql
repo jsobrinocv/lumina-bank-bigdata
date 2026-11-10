@@ -42,4 +42,12 @@ GROUP BY fiscal_year
 HAVING n_bancos >= 20
 ORDER BY fiscal_year;
 
+-- NOTA DE COBERTURA: el dataset publico tiene cobertura completa hasta 2018
+-- (400+ bancos por anio); 2019-2020 solo tienen ~25 bancos y no son representativos.
+-- Por eso la referencia del sector se toma del anio mas reciente con n_bancos >= 100 (2018).
 SELECT * FROM lumina_gold.gold_benchmark_sector_v1 ORDER BY fiscal_year DESC LIMIT 5;
+
+-- Anio de referencia usado en los KPIs (sql/04_kpis_operativos.sql)
+SELECT * FROM lumina_gold.gold_benchmark_sector_v1
+WHERE n_bancos >= 100
+QUALIFY ROW_NUMBER() OVER (ORDER BY fiscal_year DESC) = 1;
