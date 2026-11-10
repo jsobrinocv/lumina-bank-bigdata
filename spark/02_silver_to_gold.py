@@ -122,14 +122,6 @@ fact = fact.withColumn(
     F.when(u_tx < 75, F.col("canal_preferido"))
      .otherwise(F.element_at(F.array(*[F.lit(c) for c in CANALES]), (u_tx % 4 + 1).cast("int"))))
 
-# Patron de gasto historico ("patrones aprendidos") -> lo usa el streaming
-patron = (fact.groupBy("tipo", "segmento_etario").agg(
-    F.count("*").alias("n_transacciones"),
-    F.round(F.avg("monto"), 2).alias("monto_promedio"),
-    F.round(F.stddev("monto"), 2).alias("monto_desv"),
-    F.round(F.percentile_approx("monto", 0.95), 2).alias("monto_p95"),
-    F.round(F.avg("es_fraude"), 6).alias("tasa_fraude")))
-
 fact = fact.select(
     "transaccion_id", "fecha", "hora", "ts_evento", "step", "tipo",
     "cliente_origen_id", "cliente_destino_id", "tipo_destino", "distrito_id", "canal",
@@ -144,11 +136,26 @@ salidas = {
     "dim_fecha": dim_fecha.coalesce(1),
     "dim_distrito": dim_distrito.coalesce(1),
     "dim_tipo_transaccion": dim_tipo.coalesce(1),
-    "patron_gasto": patron.coalesce(1),
 }
 for nombre, d in salidas.items():
     d.write.mode("overwrite").parquet(f"{GOLD}/{nombre}/")
     print(f"[gold] {nombre}: escrito")
+
+# ---------------- Patron de gasto historico ("patrones aprendidos") -> lo usa el streaming ----------------
+# Se calcula DESPUES de escribir los hechos, leyendo el Parquet ya generado:
+# asi Spark no recalcula toda la cadena silver -> fact (ahorra memoria en el nodo unico).
+# El segmento etario se obtiene con la misma funcion hash (sin join con dim_cliente).
+fact_gold = atributos_cliente(
+    spark.read.parquet(f"{GOLD}/fact_transaccion/").select("cliente_origen_id", "tipo", "monto", "es_fraude"),
+    "cliente_origen_id")
+patron = (fact_gold.groupBy("tipo", "segmento_etario").agg(
+    F.count("*").alias("n_transacciones"),
+    F.round(F.avg("monto"), 2).alias("monto_promedio"),
+    F.round(F.stddev("monto"), 2).alias("monto_desv"),
+    F.round(F.percentile_approx("monto", 0.95, 1000), 2).alias("monto_p95"),
+    F.round(F.avg("es_fraude"), 6).alias("tasa_fraude")))
+patron.repartition(1).write.mode("overwrite").parquet(f"{GOLD}/patron_gasto/")
+print("[gold] patron_gasto: escrito")
 
 print("[gold] filas fact:", spark.read.parquet(f"{GOLD}/fact_transaccion/").count())
 print("[gold] filas dim_cliente:", spark.read.parquet(f"{GOLD}/dim_cliente/").count())
