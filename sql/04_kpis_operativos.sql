@@ -44,7 +44,7 @@ WITH lumina AS (
 ),
 sector AS (
   SELECT * FROM lumina_gold.gold_benchmark_sector_v1
-  WHERE TRUE
+    WHERE n_bancos >= 100   -- anio mas reciente con muestra representativa (2018)
   QUALIFY ROW_NUMBER() OVER (ORDER BY fiscal_year DESC) = 1
 )
 SELECT
