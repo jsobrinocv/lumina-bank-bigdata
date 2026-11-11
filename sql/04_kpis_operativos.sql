@@ -3,7 +3,7 @@
 -- Reemplaza el costo diario con el valor de la GCP Pricing Calculator
 -- (costo mensual estimado / 30). Supuesto: 1 u.m. de PaySim = 1 USD.
 -- =============================================================
-DECLARE costo_plataforma_diario_usd FLOAT64 DEFAULT 120.0;  -- SUPUESTO: ajustar
+DECLARE costo_plataforma_diario_usd FLOAT64 DEFAULT 57.57;  -- ( costo mensual estimado =1727 )/ 30 = 57.57
 
 -- 1) KPI diario del sistema
 CREATE OR REPLACE TABLE lumina_gold.gold_kpi_operativo_diario_v1
