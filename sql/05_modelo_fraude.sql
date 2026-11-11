@@ -34,3 +34,20 @@ SELECT * FROM ML.EVALUATE(
 -- Variables mas influyentes (para explicar el modelo en la sustentacion)
 SELECT * FROM ML.WEIGHTS(MODEL lumina_gold.ml_fraude_logreg_v1)
 ORDER BY ABS(weight) DESC;
+
+-- =============================================================
+-- Comparacion de umbrales de decision (politica escalonada)
+--   score >= 0.95        -> BLOQUEAR  (alta precision)
+--   0.50 <= score < 0.95 -> REVISAR   (verificacion adicional: OTP, llamada, analista)
+--   score < 0.50         -> APROBAR
+-- ROC AUC y log_loss no cambian con el umbral; precision y recall si.
+-- =============================================================
+SELECT 0.5 AS umbral, * FROM ML.EVALUATE(MODEL lumina_gold.ml_fraude_logreg_v1,
+  (SELECT * EXCEPT(split) FROM lumina_gold.ml_dataset_fraude_v1 WHERE split = 'TEST'), STRUCT(0.5 AS threshold))
+UNION ALL
+SELECT 0.8, * FROM ML.EVALUATE(MODEL lumina_gold.ml_fraude_logreg_v1,
+  (SELECT * EXCEPT(split) FROM lumina_gold.ml_dataset_fraude_v1 WHERE split = 'TEST'), STRUCT(0.8 AS threshold))
+UNION ALL
+SELECT 0.95, * FROM ML.EVALUATE(MODEL lumina_gold.ml_fraude_logreg_v1,
+  (SELECT * EXCEPT(split) FROM lumina_gold.ml_dataset_fraude_v1 WHERE split = 'TEST'), STRUCT(0.95 AS threshold))
+ORDER BY umbral;
