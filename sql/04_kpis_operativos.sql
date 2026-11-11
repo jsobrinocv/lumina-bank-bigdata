@@ -1,10 +1,11 @@
 -- =============================================================
 -- Vertical III - Informes operativos bajo demanda
--- Reemplaza el costo diario con el valor de la calculadora de la Entrega 1.
+-- Reemplaza el costo diario con el valor de la GCP Pricing Calculator
+-- (costo mensual estimado / 30). Supuesto: 1 u.m. de PaySim = 1 USD.
 -- =============================================================
 DECLARE costo_plataforma_diario_usd FLOAT64 DEFAULT 120.0;  -- SUPUESTO: ajustar
 
--- KPI diario del sistema
+-- 1) KPI diario del sistema
 CREATE OR REPLACE TABLE lumina_gold.gold_kpi_operativo_diario_v1
 PARTITION BY fecha AS
 SELECT
@@ -22,7 +23,7 @@ FROM lumina_gold.gold_fact_transaccion_v1 f
 JOIN lumina_gold.gold_dim_tipo_transaccion_v1 t USING (tipo)
 GROUP BY f.fecha;
 
--- Ingresos por producto financiero
+-- 2) Ingresos por producto financiero
 CREATE OR REPLACE TABLE lumina_gold.gold_ingresos_producto_diario_v1
 PARTITION BY fecha AS
 SELECT f.fecha, t.producto,
@@ -33,31 +34,27 @@ FROM lumina_gold.gold_fact_transaccion_v1 f
 JOIN lumina_gold.gold_dim_tipo_transaccion_v1 t USING (tipo)
 GROUP BY 1, 2;
 
--- Salud financiera: Lumina vs banca tradicional (ultimo anio disponible en SEC)
+-- 3) Salud financiera: metas de Lumina frente a la banca tradicional (SEC)
+--    PaySim no tiene activos, patrimonio ni gastos totales, por lo que no se
+--    puede calcular el mismo indicador para Lumina; el sector define las METAS.
+--    Se usa el anio mas reciente con muestra representativa (n_bancos >= 100 -> 2018).
 CREATE OR REPLACE VIEW lumina_gold.vw_salud_lumina_vs_sector_v1 AS
-WITH lumina AS (
-  SELECT
-    SAFE_DIVIDE(SUM(n_transacciones * costo_operativo_por_tx), SUM(ingresos_estimados)) AS ratio_eficiencia,
-    SAFE_DIVIDE(SUM(monto_fraude), SUM(monto_total)) AS tasa_perdida_fraude,
-    AVG(costo_operativo_por_tx) AS costo_por_tx
-  FROM lumina_gold.gold_kpi_operativo_diario_v1
-),
-sector AS (
+WITH sector AS (
   SELECT * FROM lumina_gold.gold_benchmark_sector_v1
-    WHERE n_bancos >= 100   -- anio mas reciente con muestra representativa (2018)
+  WHERE n_bancos >= 100
   QUALIFY ROW_NUMBER() OVER (ORDER BY fiscal_year DESC) = 1
 )
-SELECT
-  'Ratio de eficiencia (costo / ingreso)' AS indicador,
-  ROUND(l.ratio_eficiencia, 4) AS lumina_bank,
-  ROUND(s.ratio_eficiencia_mediana, 4) AS banca_tradicional,
-  s.fiscal_year AS anio_referencia_sector
-FROM lumina l CROSS JOIN sector s
+SELECT 'Ratio de eficiencia (gastos operativos / ingresos)' AS indicador,
+       ROUND(ratio_eficiencia_mediana, 4) AS valor_banca_tradicional,
+       'Menor o igual' AS meta_lumina, fiscal_year AS anio_referencia, n_bancos
+FROM sector
 UNION ALL
-SELECT 'ROA mediano del sector', NULL, ROUND(s.roa_mediana, 4), s.fiscal_year
-FROM sector s
+SELECT 'ROA (utilidad / activos)', ROUND(roa_mediana, 4), 'Mayor o igual', fiscal_year, n_bancos
+FROM sector
 UNION ALL
-SELECT 'Tasa de perdida por fraude (monto)', ROUND(l.tasa_perdida_fraude, 6), NULL, NULL
-FROM lumina l;
+SELECT 'ROE (utilidad / patrimonio)', ROUND(roe_mediana, 4), 'Mayor o igual', fiscal_year, n_bancos
+FROM sector;
 
+-- 4) Resultados
 SELECT * FROM lumina_gold.gold_kpi_operativo_diario_v1 ORDER BY fecha LIMIT 10;
+SELECT * FROM lumina_gold.vw_salud_lumina_vs_sector_v1;
