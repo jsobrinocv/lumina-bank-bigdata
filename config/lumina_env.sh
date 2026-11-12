@@ -12,7 +12,7 @@ export CLUSTER=lumina-spark
 export SA=${PROJECT_NUMBER}-compute@developer.gserviceaccount.com
 export TOPIC=lumina-transacciones
 export SUBSCRIPTION=lumina-transacciones-df
-export BT_INSTANCE=lumina-rt
+export BT_INSTANCE=lumina-rt--lumina-rt   # ID real creado por la consola (nombre "Lumina RT / lumina-rt")
 export BT_TABLE=perfil_cliente
 
 echo "Proyecto: $PROJECT_ID | Region: $REGION | Bucket: gs://$BUCKET"
