@@ -1,9 +1,9 @@
 -- =============================================================
 -- Vertical III - Informes operativos bajo demanda
--- Reemplaza el costo diario con el valor de la GCP Pricing Calculator
--- (costo mensual estimado / 30). Supuesto: 1 u.m. de PaySim = 1 USD.
+-- Costo diario tomado de la GCP Pricing Calculator (seccion 9 del informe):
+-- US$ 1 727 / mes / 30 = US$ 57,57 por dia. Supuesto: 1 u.m. de PaySim = 1 USD.
 -- =============================================================
-DECLARE costo_plataforma_diario_usd FLOAT64 DEFAULT 57.57;  -- ( costo mensual estimado =1727 )/ 30 = 57.57
+DECLARE costo_plataforma_diario_usd FLOAT64 DEFAULT 57.57;  -- Pricing Calculator: 1 727 / 30
 
 -- 1) KPI diario del sistema
 CREATE OR REPLACE TABLE lumina_gold.gold_kpi_operativo_diario_v1
