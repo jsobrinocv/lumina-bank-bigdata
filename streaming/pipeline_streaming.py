@@ -119,7 +119,7 @@ class FormatearVentana(beam.DoFn):
             "ventana_inicio": w.start.to_utc_datetime().strftime(FMT),
             "ventana_fin": w.end.to_utc_datetime().strftime(FMT),
             "distrito_id": dist, "tipo": tipo,
-            "n_tx": n, "monto_total": round(monto, 2), "alertas": a,
+            "n_tx": n, "monto_total": round(monto, 2), "n_alertas": alertas,
         }
 
 
