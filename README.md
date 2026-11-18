@@ -18,8 +18,9 @@ sql/         modelado y analítica en BigQuery
 streaming/   productor Pub/Sub y pipeline Apache Beam (Dataflow)
 scripts/     setup, carga a BigQuery, orquestación batch y apagado
 contracts/   contrato de datos de la capa silver
-api/         capa de exposición (Entrega 3)
-docs/        documentos de cada entrega, diagramas y evidencias
+api/         API de exposición en Cloud Run (Entrega 3)
+agente/      agente conversacional ADK + Gemini (Entrega 3)
+docs/        documentos de cada entrega y diagramas de arquitectura
 ```
 
 Los archivos `sql/consola_*.sql` son la versión para ejecutar desde BigQuery Studio
@@ -30,8 +31,8 @@ Los archivos `sql/consola_*.sql` son la versión para ejecutar desde BigQuery St
 | Entrega | Fecha | Contenido en el repo |
 |---|---|---|
 | 1 – Blueprint | 24-oct-2026 | `docs/entrega1/` |
-| 2 – Procesamiento y modelado | 7-nov-2026 | `spark/`, `sql/`, `streaming/`, `docs/evidencias/entrega2/` |
-| 3 – Exposición y demo | 20-nov-2026 | `api/`, `docs/entrega3/`, `docs/evidencias/entrega3/` |
+| 2 – Procesamiento y modelado | 11-nov-2026 | `spark/`, `sql/`, `streaming/`, `docs/entrega2/` |
+| 3 – Exposición y demo | 20-nov-2026 | `api/`, `agente/`, `docs/entrega3/` |
 
 ## Ejecución rápida
 
