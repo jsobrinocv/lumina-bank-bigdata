@@ -1,13 +1,15 @@
-# Imagen de la API de Lumina Bank para Cloud Run
 FROM python:3.12-slim
 
-ENV PYTHONUNBUFFERED=1 PORT=8080
-WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PORT=8080
+WORKDIR /srv
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py .
+COPY app ./app
 
-# Cloud Run indica el puerto en la variable PORT
-CMD exec uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers 1
+# Usuario sin privilegios dentro del contenedor
+RUN useradd --create-home lumina
+USER lumina
+
+CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --workers 1

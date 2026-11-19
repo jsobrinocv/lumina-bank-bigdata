@@ -1,5 +1,7 @@
-fastapi==0.115.6
-uvicorn[standard]==0.32.1
-google-cloud-bigquery==3.27.0
-google-cloud-bigtable==2.27.0
-google-cloud-pubsub==2.27.1
+fastapi==0.115.*
+uvicorn[standard]==0.32.*
+pydantic==2.*
+google-cloud-bigtable==2.*
+google-cloud-bigquery==3.*
+google-cloud-pubsub==2.*
+redis==5.*

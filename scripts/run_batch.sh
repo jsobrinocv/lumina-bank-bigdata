@@ -12,11 +12,11 @@ gcloud storage cp spark/*.py "gs://${BUCKET}/scripts/"
 
 echo "== Job 1: bronze -> silver"
 gcloud dataproc jobs submit pyspark "gs://${BUCKET}/scripts/01_bronze_to_silver.py" \
-  --cluster="$CLUSTER" --region="$REGION" -- --bucket="$BUCKET"
+  --cluster="$CLUSTER" --region="$REGION" --properties=spark.driver.memory=4g,spark.executor.memory=8g,spark.executor.cores=2,spark.dynamicAllocation.enabled=false,spark.executor.instances=2,spark.sql.shuffle.partitions=64 -- --bucket="$BUCKET"
 
 echo "== Job 2: silver -> gold"
 gcloud dataproc jobs submit pyspark "gs://${BUCKET}/scripts/02_silver_to_gold.py" \
-  --cluster="$CLUSTER" --region="$REGION" -- --bucket="$BUCKET"
+  --cluster="$CLUSTER" --region="$REGION" --properties=spark.driver.memory=4g,spark.executor.memory=8g,spark.executor.cores=2,spark.dynamicAllocation.enabled=false,spark.executor.instances=2,spark.sql.shuffle.partitions=64 -- --bucket="$BUCKET"
 
 echo "== Carga en BigQuery"
 bash scripts/02_load_bigquery.sh
