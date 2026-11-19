@@ -96,6 +96,34 @@ class AnaliticaRepo:
             WHERE fecha = @f ORDER BY ingresos_estimados DESC""", p)
         return {**kpi[0], "ingresos_por_producto": productos}
 
+    def alertas(self, limite: int, decision: Optional[str]) -> list[dict]:
+        # Solo las 2 ultimas particiones diarias: la consulta lee poco aunque la tabla crezca
+        sql = f"""
+            SELECT transaccion_id, ts_evento, tipo, monto, cliente_origen_id, distrito_id,
+                   decision, score_riesgo, motivos, latencia_ms
+            FROM `{self._p}.{self._rt}.rt_transaccion_scored_v1`
+            WHERE ts_evento >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 DAY)
+              AND decision != 'APROBAR'
+              AND (@dec IS NULL OR decision = @dec)
+            ORDER BY ts_evento DESC
+            LIMIT @n"""
+        return self._consultar(sql, [self._bq.ScalarQueryParameter("dec", "STRING", decision),
+                                     self._bq.ScalarQueryParameter("n", "INT64", limite)])
+
+    def kpis_ultimos(self, dias: int) -> list[dict]:
+        sql = f"""
+            SELECT * FROM `{self._p}.{self._gold}.gold_kpi_operativo_diario_v1`
+            ORDER BY fecha DESC
+            LIMIT @n"""
+        return self._consultar(sql, [self._bq.ScalarQueryParameter("n", "INT64", dias)])
+
+    def distritos(self) -> list[dict]:
+        sql = f"""
+            SELECT distrito_id, distrito_nombre, tipo_zona
+            FROM `{self._p}.{self._gold}.gold_dim_distrito_v1`
+            ORDER BY distrito_id"""
+        return self._consultar(sql, [])
+
     def operacion_ultimos_minutos(self, minutos: int) -> list[dict]:
         sql = f"""
             SELECT ventana_inicio, distrito_id, tipo, n_tx, monto_total, n_alertas

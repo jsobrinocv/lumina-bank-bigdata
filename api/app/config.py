@@ -37,5 +37,6 @@ def cargar() -> Config:
         # Tope de costo por consulta de BigQuery (1 GB): una consulta mal filtrada falla en vez de cobrar
         max_bytes_consulta=int(e("MAX_BYTES_CONSULTA", str(1024 ** 3))),
         # API key opcional, inyectada desde Secret Manager (--set-secrets API_KEY=...)
-        api_key=e("API_KEY", ""),
+        # strip(): un secreto creado con `echo` u `openssl` puede traer un salto de linea final
+        api_key=e("API_KEY", "").strip(),
     )

@@ -102,3 +102,39 @@ def test_transacciones_de_la_demo_obtienen_la_decision_esperada():
 
     assert score(demo_e2e.TX_NORMAL) < reglas.UMBRAL_REVISAR
     assert score(demo_e2e.TX_FRAUDE) >= reglas.UMBRAL_BLOQUEAR
+
+
+def test_api_key_sin_salto_de_linea(monkeypatch):
+    from app import config
+    monkeypatch.setenv("API_KEY", "abc123\n")
+    assert config.cargar().api_key == "abc123"
+
+
+def test_score_preliminar_igual_al_de_la_demo():
+    """El POST responde al instante con las reglas del pipeline (sin el percentil 95)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "demo"))
+    import demo_e2e
+
+    def evaluar(tx):
+        s, m = reglas.score_preliminar(tx["tipo"], tx["monto"], tx["saldo_ini_origen"],
+                                       tx["saldo_fin_origen"])
+        return reglas.decision(s), s, m
+
+    assert evaluar(demo_e2e.TX_NORMAL) == ("APROBAR", 0, [])
+    assert evaluar(demo_e2e.TX_FRAUDE) == (
+        "BLOQUEAR", 80, ["tipo_riesgoso", "vacia_cuenta", "descuadre_saldo"])
+
+
+@pytest.mark.parametrize("score,decision", [(0, "APROBAR"), (49, "APROBAR"), (50, "REVISAR"),
+                                            (79, "REVISAR"), (80, "BLOQUEAR"), (100, "BLOQUEAR")])
+def test_decision_usa_umbrales_del_pipeline(score, decision):
+    assert reglas.decision(score) == decision
+
+
+def test_transaccion_del_agente_es_valida():
+    """El agente ADK envia cliente_destino_id='C0000000000' por defecto: debe aceptarse."""
+    tx = TransaccionIn(tipo="TRANSFER", monto=9000, cliente_origen_id="C1231006815",
+                       cliente_destino_id="C0000000000", saldo_ini_origen=9000,
+                       saldo_fin_origen=0, canal="APP")
+    s, motivos = reglas.score_preliminar(tx.tipo, tx.monto, tx.saldo_ini_origen, tx.saldo_fin_origen)
+    assert reglas.decision(s) == "REVISAR" and motivos == ["tipo_riesgoso", "vacia_cuenta"]

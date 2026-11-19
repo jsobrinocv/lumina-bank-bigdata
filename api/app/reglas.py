@@ -15,6 +15,8 @@ DISTRITOS = {
 # Umbrales del score de reglas del pipeline de tiempo real (Entrega 2, seccion 6.7)
 UMBRAL_BLOQUEAR = 80
 UMBRAL_REVISAR = 50
+# Tipos que el pipeline considera riesgosos (streaming/pipeline_streaming.py)
+RIESGOSOS = ("TRANSFER", "CASH_OUT")
 
 
 def h(texto: str, inicio: int, largo: int = 8) -> int:
@@ -39,3 +41,24 @@ def nivel_riesgo(score: int | None) -> str:
     if score >= UMBRAL_REVISAR:
         return "MEDIO"
     return "BAJO"
+
+
+def decision(score: int) -> str:
+    return "BLOQUEAR" if score >= UMBRAL_BLOQUEAR else "REVISAR" if score >= UMBRAL_REVISAR else "APROBAR"
+
+
+def score_preliminar(tipo: str, monto: float, saldo_ini: float, saldo_fin: float) -> tuple[int, list[str]]:
+    """Mismas reglas del pipeline de Dataflow, sin la del percentil 95 historico.
+
+    Sirve para responder al instante en el POST. La decision oficial es la de Dataflow
+    (GET /v1/transacciones/{id}); como la regla omitida solo suma puntos, la oficial
+    puede ser igual o mas estricta, nunca mas permisiva.
+    """
+    score, motivos = 0, []
+    if tipo in RIESGOSOS:
+        score += 30; motivos.append("tipo_riesgoso")
+        if saldo_ini > 0 and monto >= saldo_ini:
+            score += 35; motivos.append("vacia_cuenta")
+        if abs(saldo_ini - monto - saldo_fin) > 1:
+            score += 15; motivos.append("descuadre_saldo")
+    return min(score, 100), motivos

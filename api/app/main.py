@@ -9,6 +9,13 @@ Endpoints
   GET  /v1/kpis/{fecha}                      KPIs operativos e ingresos por producto del dia
   GET  /v1/operacion/ultimos-minutos         transacciones y alertas por minuto, distrito y tipo
 
+Compatibles con el agente conversacional (agente/lumina_agente, ADK):
+  GET  /salud                                igual que /health
+  GET  /v1/clientes/{id}/perfil              igual que /v1/clientes/{id}/riesgo
+  GET  /v1/alertas?limite=&decision=         ultimas transacciones REVISAR o BLOQUEAR
+  GET  /v1/kpis?fecha=&ultimos=              KPIs de una fecha o de los ultimos N dias
+  GET  /v1/distritos                         catalogo de distritos con su tipo de zona
+
 Documentacion interactiva (OpenAPI): /docs
 """
 import datetime as dt
@@ -23,7 +30,8 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Reques
 
 from . import __version__, config, reglas
 from .cache import crear_cache
-from .modelos import DecisionTransaccion, RiesgoCliente, TransaccionAceptada, TransaccionIn
+from .modelos import (DecisionPreliminar, DecisionTransaccion, RiesgoCliente, TransaccionAceptada,
+                      TransaccionIn)
 
 log = logging.getLogger("lumina-api")
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -68,6 +76,7 @@ def crear_app(cfg=None, perfiles=None, analitica=None, publicador=None, cache=No
     protegido = [Depends(verificar_api_key)]
 
     @app.get("/health", tags=["operacion"])
+    @app.get("/salud", tags=["operacion"], include_in_schema=False)
     def health(request: Request):
         return {"estado": "ok", "version": __version__,
                 "cache": request.app.state.cache.nombre}
@@ -85,8 +94,12 @@ def crear_app(cfg=None, perfiles=None, analitica=None, publicador=None, cache=No
             log.error(json.dumps({"severity": "ERROR", "evento": "publicacion_fallida",
                                   "detalle": str(e)}))
             raise HTTPException(status_code=503, detail="No se pudo encolar la transaccion")
-        return TransaccionAceptada(transaccion_id=tx_id, ts_evento=ts,
-                                   consultar_en=f"/v1/transacciones/{tx_id}")
+        score, motivos = reglas.score_preliminar(tx.tipo, tx.monto, tx.saldo_ini_origen,
+                                                 tx.saldo_fin_origen)
+        return TransaccionAceptada(
+            transaccion_id=tx_id, ts_evento=ts, consultar_en=f"/v1/transacciones/{tx_id}",
+            decision_preliminar=DecisionPreliminar(decision=reglas.decision(score),
+                                                   score_riesgo=score, motivos=motivos))
 
     @app.get("/v1/transacciones/{transaccion_id}", response_model=DecisionTransaccion,
              tags=["tiempo real"], dependencies=protegido)
@@ -106,6 +119,8 @@ def crear_app(cfg=None, perfiles=None, analitica=None, publicador=None, cache=No
 
     @app.get("/v1/clientes/{cliente_id}/riesgo", response_model=RiesgoCliente,
              tags=["tiempo real"], dependencies=protegido)
+    @app.get("/v1/clientes/{cliente_id}/perfil", response_model=RiesgoCliente,
+             tags=["tiempo real"], dependencies=protegido, include_in_schema=False)
     def riesgo_cliente(request: Request,
                        cliente_id: str = Path(pattern=r"^C\d{4,12}$")):
         st = request.app.state
@@ -125,6 +140,16 @@ def crear_app(cfg=None, perfiles=None, analitica=None, publicador=None, cache=No
             ultimo_monto=float(perfil["monto"]) if "monto" in perfil else None,
             ultimo_canal=perfil.get("canal"), ultima_transaccion_ts=perfil.get("ts_evento"),
             historial_decisiones=perfil.get("historial", []), fuente=fuente)
+
+    @app.get("/v1/alertas", tags=["tiempo real"], dependencies=protegido)
+    def alertas(request: Request, limite: int = Query(default=10, ge=1, le=100),
+                decision: str | None = Query(default=None, pattern="^(REVISAR|BLOQUEAR)$")):
+        filas = request.app.state.analitica.alertas(limite, decision)
+        for f in filas:
+            f["motivos"] = [m for m in (f.get("motivos") or "").split(",") if m]
+            f["distrito_nombre"] = reglas.DISTRITOS.get(f.get("distrito_id"))
+        return {"n_alertas": len(filas), "decision": decision or "REVISAR o BLOQUEAR",
+                "alertas": filas}
 
     # ---------- Verticales II y III: analitica gold ----------
     def con_cache(request: Request, clave: str, funcion):
@@ -147,6 +172,31 @@ def crear_app(cfg=None, perfiles=None, analitica=None, publicador=None, cache=No
         return {"distrito_id": distrito_id, "distrito_nombre": reglas.DISTRITOS[distrito_id],
                 "horizonte_dias": len(plan), "efectivo_total_a_provisionar": total,
                 "plan": plan, "fuente": fuente}
+
+    @app.get("/v1/kpis", tags=["analitica"], dependencies=protegido)
+    def kpis_rango(request: Request, fecha: dt.date | None = None,
+                   ultimos: int = Query(default=7, ge=1, le=90)):
+        if fecha is not None:
+            return kpis(request, fecha)
+        datos, fuente = con_cache(request, f"kpis:ultimos:{ultimos}",
+                                  lambda: request.app.state.analitica.kpis_ultimos(ultimos))
+        if not datos:
+            raise HTTPException(status_code=404, detail="Sin KPIs disponibles")
+        return {"dias": len(datos), "kpis": datos, "fuente": fuente}
+
+    @app.get("/v1/distritos", tags=["analitica"], dependencies=protegido)
+    def distritos(request: Request):
+        try:
+            filas, fuente = con_cache(request, "distritos",
+                                      lambda: request.app.state.analitica.distritos())
+        except Exception as e:  # sin BigQuery se responde el catalogo base, sin tipo de zona
+            log.warning(json.dumps({"severity": "WARNING", "evento": "distritos_sin_bq",
+                                    "detalle": str(e)}))
+            filas, fuente = [], "catalogo"
+        if not filas:
+            filas = [{"distrito_id": k, "distrito_nombre": v} for k, v in reglas.DISTRITOS.items()]
+            fuente = "catalogo"
+        return {"distritos": filas, "fuente": fuente}
 
     @app.get("/v1/kpis/{fecha}", tags=["analitica"], dependencies=protegido)
     def kpis(request: Request, fecha: dt.date):

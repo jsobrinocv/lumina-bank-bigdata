@@ -27,11 +27,19 @@ class TransaccionIn(BaseModel):
         return round(v, 2)
 
 
+class DecisionPreliminar(BaseModel):
+    """Reglas del pipeline sin el percentil 95: la decision oficial puede ser igual o mas estricta."""
+    decision: str
+    score_riesgo: int
+    motivos: list[str]
+
+
 class TransaccionAceptada(BaseModel):
     transaccion_id: str
     estado: Literal["RECIBIDA"] = "RECIBIDA"
     ts_evento: str
     consultar_en: str
+    decision_preliminar: Optional[DecisionPreliminar] = None
 
 
 class DecisionTransaccion(BaseModel):
