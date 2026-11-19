@@ -16,3 +16,9 @@ venv*/
 __pycache__/
 *.pyc
 *.log
+
+streaming/muestra_stream.csv
+kaggle.json
+*.key
+.env
+__pycache__/
